@@ -20,16 +20,13 @@ mongoose
 //Starting Schema
 const userSchema = new Schema(
   {
-    username: {
+    name: String,
+    email: {
       type: String,
-      unique: true,
-      index: {
-        unique: true
-      }
+      unique: true
     },
     password: String,
     role: Number,
-    line: Number,
     createdAt: { type: Date, default: Date.now }
   },
   { versionKey: false }

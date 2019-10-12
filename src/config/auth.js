@@ -7,19 +7,21 @@ module.exports = passport => {
     "signup",
     new localStrategy(
       {
-        usernameField: "username",
+        usernameField: "email",
         passwordField: "password",
         passReqToCallback: true
       },
-      (req, username, password, done) => {
+      (req, email, password, done) => {
         let newUser = new User({
-          username: username.toLowerCase(),
+          name: req.body.name,
+          email: email.toLowerCase(),
           password,
           role: req.body.role
         });
 
         newUser.save(function(err, savedUser) {
           if (err) {
+            console.log(err);
             if (err.name === "MongoError" && err.code === 11000) {
               return done(
                 null,
@@ -41,12 +43,12 @@ module.exports = passport => {
     "login",
     new localStrategy(
       {
-        usernameField: "username",
+        usernameField: "email",
         passwordField: "password",
         passReqToCallback: true
       },
-      (req, username, password, done) => {
-        User.findOne({ username }, function(err, user) {
+      (req, email, password, done) => {
+        User.findOne({ email }, function(err, user) {
           if (err) return done(err);
 
           if (!user) {
@@ -68,7 +70,7 @@ module.exports = passport => {
                 return done(
                   null,
                   false,
-                  req.flash("loginMessage", "Wrong username or password")
+                  req.flash("loginMessage", "Wrong email or password")
                 );
               }
 
