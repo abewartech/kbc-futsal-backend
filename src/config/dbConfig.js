@@ -32,6 +32,17 @@ const userSchema = new Schema(
   { versionKey: false }
 );
 
+const bookingScheme = new Schema(
+  {
+    userId: String,
+    date: String,
+    jam: String,
+    status: String,
+    createdAt: { type: Date, default: Date.now }
+  },
+  { versionKey: false }
+);
+
 //Model method after this line
 userSchema.pre("save", async function(next) {
   const user = this;
@@ -49,7 +60,9 @@ userSchema.methods.comparePassword = function(candidatePassword, callback) {
 
 //All Model after this line
 const User = Model("User", userSchema);
+const Booking = Model("Booking", bookingScheme);
 
 module.exports = {
-  User
+  User,
+  Booking
 };
