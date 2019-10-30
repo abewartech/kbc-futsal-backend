@@ -37,7 +37,7 @@ const bookingScheme = new Schema(
     userId: String,
     date: String,
     jam: String,
-    status: String,
+    image: String,
     createdAt: { type: Date, default: Date.now }
   },
   { versionKey: false }

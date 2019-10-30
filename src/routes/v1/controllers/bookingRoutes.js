@@ -78,6 +78,31 @@ const booking = {
     });
   },
 
+  editOneBooking: (req, res) => {
+    const fileName = req.body.fileName;
+    const id = req.body.id;
+    let editBooking = {
+      image: fileName
+    };
+
+    Booking.findByIdAndUpdate(id, editBooking, { new: true }, function(
+      err,
+      booking
+    ) {
+      if (err) {
+        return res.status(400).json({ success: false, message: err });
+      }
+
+      if (booking === null) {
+        return res
+          .status(200)
+          .json({ success: false, message: "Booking not found" });
+      }
+
+      res.status(200).json({ success: true, message: booking });
+    });
+  },
+
   deleteOneBooking: (req, res) => {
     jwt.verify(req.token, process.env.JWT_SECRET_KEY, function(err, authData) {
       if (err) {

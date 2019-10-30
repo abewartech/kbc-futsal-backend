@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const user = require("./controllers/userRoutes");
 const booking = require("./controllers/bookingRoutes");
+const upload = require("../../config/uploadMiddleware");
 
 //user
 router
@@ -14,8 +15,10 @@ router
 //booking
 router
   .post("/addbooking", user.verifyToken, booking.addBooking)
+  .post("/upload", upload.single("image"), booking.editOneBooking)
   .get("/getallbooking", user.verifyToken, booking.getAllBookings)
   .get("/getbooking/:id", user.verifyToken, booking.getOneBooking)
+  .put("/editbooking/:id", user.verifyToken, booking.editOneBooking)
   .delete("/deletebooking/:id", user.verifyToken, booking.deleteOneBooking);
 
 module.exports = router;
