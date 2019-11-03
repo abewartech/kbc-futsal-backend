@@ -19,6 +19,12 @@ router
   .get("/getallbooking", user.verifyToken, booking.getAllBookings)
   .get("/getbooking/:id", user.verifyToken, booking.getOneBooking)
   .put("/editbooking/:id", user.verifyToken, booking.editOneBooking)
-  .delete("/deletebooking/:id", user.verifyToken, booking.deleteOneBooking);
+  .delete("/deletebooking/:id", user.verifyToken, booking.deleteOneBooking)
+  .delete("/completebooking/:id", user.verifyToken, booking.completeBooking)
+  .get(
+    "/getallcompletebooking",
+    user.verifyToken,
+    booking.getAllCompleteBookings
+  );
 
 module.exports = router;

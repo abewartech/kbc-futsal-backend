@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
-const { Booking } = require("../../../config/dbConfig");
+const { Booking, completeBooking } = require("../../../config/dbConfig");
+const fs = require("fs");
 
 const booking = {
   addBooking: (req, res) => {
@@ -15,6 +16,7 @@ const booking = {
       } else {
         let newBooking = new Booking({
           userId: req.body.userId,
+          namaTeam: req.body.namaTeam,
           date: req.body.date,
           jam: req.body.jam
         });
@@ -121,6 +123,79 @@ const booking = {
           }
 
           res.status(200).json({ success: true, message: deletedBooking });
+        });
+      }
+    });
+  },
+
+  completeBooking: (req, res) => {
+    jwt.verify(req.token, process.env.JWT_SECRET_KEY, function(err, authData) {
+      if (err) {
+        res.status(401).json({ success: false, message: err });
+      } else {
+        const id = req.params.id;
+
+        Booking.findById(id, function(err, Booking) {
+          if (err) {
+            return res.status(400).json({ success: false, message: err });
+          }
+
+          if (Booking === null) {
+            return res
+              .status(200)
+              .json({ success: false, message: "Booking not found" });
+          }
+
+          Booking.remove(function(err, result) {
+            if (err) {
+              return res.status(400).json({ success: false, message: err });
+            }
+
+            fs.unlink(`public/images/uploads/${result.image}`, err => {
+              if (err) throw err;
+            });
+
+            let newComplete = new completeBooking({
+              prevId: result._id,
+              userId: result.userId,
+              namaTeam: result.namaTeam,
+              date: result.date,
+              jam: result.jam
+            });
+
+            newComplete.save(function(err, savedComplateBooking) {
+              if (err) {
+                if (err.name === "MongoError" && err.code === 11000) {
+                  return res.status(400).json({
+                    success: false,
+                    message: "Complate Booking already registered"
+                  });
+                }
+                res.status(400).json({ success: false, message: err });
+              } else {
+                res.status(200).json({
+                  success: true,
+                  message: savedComplateBooking
+                });
+              }
+            });
+          });
+        });
+      }
+    });
+  },
+
+  getAllCompleteBookings: (req, res) => {
+    jwt.verify(req.token, process.env.JWT_SECRET_KEY, function(err, authData) {
+      if (err) {
+        res.status(401).json({ success: false, message: err });
+      } else {
+        completeBooking.find({}, function(err, Bookings) {
+          if (err) {
+            return res.status(400).json({ success: false, message: err });
+          }
+
+          res.status(200).json({ success: true, message: Bookings });
         });
       }
     });

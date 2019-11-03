@@ -31,7 +31,7 @@ const user = {
         if (user) {
           res.status(200).json({
             success: true,
-            message: { email: user.email, role: user.role }
+            message: user
           });
         } else {
           res.status(200).json({
@@ -70,7 +70,8 @@ const user = {
                 email: user.email,
                 role: user.role,
                 id: user.id,
-                token: token
+                token: token,
+                name: user.name
               });
             }
           });

@@ -21,7 +21,6 @@ module.exports = passport => {
 
         newUser.save(function(err, savedUser) {
           if (err) {
-            console.log(err);
             if (err.name === "MongoError" && err.code === 11000) {
               return done(
                 null,

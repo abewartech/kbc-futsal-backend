@@ -35,9 +35,22 @@ const userSchema = new Schema(
 const bookingScheme = new Schema(
   {
     userId: String,
+    namaTeam: String,
     date: String,
     jam: String,
     image: String,
+    createdAt: { type: Date, default: Date.now }
+  },
+  { versionKey: false }
+);
+
+const completeBookingScheme = new Schema(
+  {
+    prevId: String,
+    userId: String,
+    namaTeam: String,
+    date: String,
+    jam: String,
     createdAt: { type: Date, default: Date.now }
   },
   { versionKey: false }
@@ -61,8 +74,10 @@ userSchema.methods.comparePassword = function(candidatePassword, callback) {
 //All Model after this line
 const User = Model("User", userSchema);
 const Booking = Model("Booking", bookingScheme);
+const completeBooking = Model("completeBooking", completeBookingScheme);
 
 module.exports = {
   User,
-  Booking
+  Booking,
+  completeBooking
 };
