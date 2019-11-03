@@ -151,9 +151,11 @@ const booking = {
               return res.status(400).json({ success: false, message: err });
             }
 
-            fs.unlink(`public/images/uploads/${result.image}`, err => {
-              if (err) throw err;
-            });
+            if (result.image) {
+              fs.unlink(`public/images/uploads/${result.image}`, err => {
+                if (err) throw err;
+              });
+            }
 
             let newComplete = new completeBooking({
               prevId: result._id,
@@ -175,7 +177,7 @@ const booking = {
               } else {
                 res.status(200).json({
                   success: true,
-                  message: savedComplateBooking
+                  message: result
                 });
               }
             });
