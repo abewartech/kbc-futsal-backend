@@ -1,6 +1,10 @@
 const jwt = require("jsonwebtoken");
 const { Booking, completeBooking } = require("../../../config/dbConfig");
 const fs = require("fs");
+const Moment = require("moment");
+const { extendMoment } = require("moment-range");
+
+const moment = extendMoment(Moment);
 
 const booking = {
   addBooking: (req, res) => {
@@ -14,29 +18,87 @@ const booking = {
           message: errors[0].msg
         });
       } else {
-        let newBooking = new Booking({
-          userId: req.body.userId,
-          namaTeam: req.body.namaTeam,
-          date: req.body.date,
-          jam: req.body.jam
-        });
+        completeBooking.find(
+          { tanggal: req.body.tanggal },
+          { date: 1, endDate: 1 },
+          function(err, Bookings) {
+            if (err) {
+              return res.status(400).json({ success: false, message: err });
+            }
+            if (Bookings.length > 0) {
+              const { date, endDate } = req.body;
+              const dates = [moment(date), moment(endDate)];
+              const range = moment.range(dates);
 
-        newBooking.save(function(err, savedBooking) {
-          if (err) {
-            if (err.name === "MongoError" && err.code === 11000) {
-              return res.status(400).json({
-                success: false,
-                message: "Booking already registered"
+              for (let i = 0; i < Bookings.length; i++) {
+                let dates2 = [
+                  moment(Bookings[i].date),
+                  moment(Bookings[i].endDate)
+                ];
+                let range2 = moment.range(dates2);
+                if (range.overlaps(range2, { adjacent: false })) {
+                  return res.status(400).json({
+                    success: false,
+                    message:
+                      "Lapangan sudah dibooking, silahkan cek jadwal dahulu"
+                  });
+                }
+              }
+
+              let newBooking = new Booking({
+                userId: req.body.userId,
+                namaTeam: req.body.namaTeam,
+                date: req.body.date,
+                jam: req.body.jam,
+                endDate: req.body.endDate,
+                tanggal: req.body.tanggal
+              });
+
+              newBooking.save(function(err, savedBooking) {
+                if (err) {
+                  if (err.name === "MongoError" && err.code === 11000) {
+                    return res.status(400).json({
+                      success: false,
+                      message: "Booking already registered"
+                    });
+                  }
+                  res.status(400).json({ success: false, message: err });
+                } else {
+                  res.status(200).json({
+                    success: true,
+                    message: savedBooking
+                  });
+                }
+              });
+            } else {
+              let newBooking = new Booking({
+                userId: req.body.userId,
+                namaTeam: req.body.namaTeam,
+                date: req.body.date,
+                jam: req.body.jam,
+                endDate: req.body.endDate,
+                tanggal: req.body.tanggal
+              });
+
+              newBooking.save(function(err, savedBooking) {
+                if (err) {
+                  if (err.name === "MongoError" && err.code === 11000) {
+                    return res.status(400).json({
+                      success: false,
+                      message: "Booking already registered"
+                    });
+                  }
+                  res.status(400).json({ success: false, message: err });
+                } else {
+                  res.status(200).json({
+                    success: true,
+                    message: savedBooking
+                  });
+                }
               });
             }
-            res.status(400).json({ success: false, message: err });
-          } else {
-            res.status(200).json({
-              success: true,
-              message: savedBooking
-            });
           }
-        });
+        );
       }
     });
   },
@@ -157,30 +219,89 @@ const booking = {
               });
             }
 
-            let newComplete = new completeBooking({
-              prevId: result._id,
-              userId: result.userId,
-              namaTeam: result.namaTeam,
-              date: result.date,
-              jam: result.jam
-            });
+            completeBooking.find(
+              { tanggal: result.tanggal },
+              { date: 1, endDate: 1 },
+              function(err, Bookings) {
+                if (err) {
+                  return res.status(400).json({ success: false, message: err });
+                }
+                if (Bookings.length > 0) {
+                  const { date, endDate } = result;
+                  const dates = [moment(date), moment(endDate)];
+                  const range = moment.range(dates);
 
-            newComplete.save(function(err, savedComplateBooking) {
-              if (err) {
-                if (err.name === "MongoError" && err.code === 11000) {
-                  return res.status(400).json({
-                    success: false,
-                    message: "Complate Booking already registered"
+                  for (let i = 0; i < Bookings.length; i++) {
+                    let dates2 = [
+                      moment(Bookings[i].date),
+                      moment(Bookings[i].endDate)
+                    ];
+                    let range2 = moment.range(dates2);
+                    if (range.overlaps(range2, { adjacent: false })) {
+                      return res.status(400).json({
+                        success: false,
+                        message:
+                          "Booking gagal di Accept, Karena lapangan sudah di booking."
+                      });
+                    }
+                  }
+
+                  let newComplete = new completeBooking({
+                    prevId: result._id,
+                    userId: result.userId,
+                    namaTeam: result.namaTeam,
+                    date: result.date,
+                    jam: result.jam,
+                    endDate: result.endDate,
+                    tanggal: result.tanggal
+                  });
+
+                  newComplete.save(function(err, savedComplateBooking) {
+                    if (err) {
+                      if (err.name === "MongoError" && err.code === 11000) {
+                        return res.status(400).json({
+                          success: false,
+                          message: "Complete Booking already registered"
+                        });
+                      }
+                      res.status(400).json({ success: false, message: err });
+                    } else {
+                      res.status(200).json({
+                        success: true,
+                        message: result
+                      });
+                    }
+                  });
+                } else {
+                  let newComplete = new completeBooking({
+                    prevId: result._id,
+                    userId: result.userId,
+                    namaTeam: result.namaTeam,
+                    date: result.date,
+                    jam: result.jam,
+                    endDate: result.endDate,
+                    tanggal: result.tanggal
+                  });
+
+                  newComplete.save(function(err, savedComplateBooking) {
+                    if (err) {
+                      if (err.name === "MongoError" && err.code === 11000) {
+                        return res.status(400).json({
+                          success: false,
+                          message: "Complete Booking already registered"
+                        });
+                      }
+                      res.status(400).json({ success: false, message: err });
+                    } else {
+                      res.status(200).json({
+                        success: true,
+                        message: result
+                      });
+                    }
                   });
                 }
-                res.status(400).json({ success: false, message: err });
-              } else {
-                res.status(200).json({
-                  success: true,
-                  message: result
-                });
               }
-            });
+            );
           });
         });
       }

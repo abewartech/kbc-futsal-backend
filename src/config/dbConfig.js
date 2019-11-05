@@ -39,6 +39,8 @@ const bookingScheme = new Schema(
     date: String,
     jam: String,
     image: String,
+    endDate: String,
+    tanggal: String,
     createdAt: { type: Date, default: Date.now }
   },
   { versionKey: false }
@@ -51,6 +53,8 @@ const completeBookingScheme = new Schema(
     namaTeam: String,
     date: String,
     jam: String,
+    endDate: String,
+    tanggal: String,
     createdAt: { type: Date, default: Date.now }
   },
   { versionKey: false }
