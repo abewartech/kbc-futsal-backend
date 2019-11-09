@@ -4,9 +4,9 @@ mongoose.set("useFindAndModify", false);
 const Schema = mongoose.Schema;
 const Model = mongoose.model;
 require("dotenv").config();
-const { MDB_URL, MDB_PORT, MDB_NAME } = process.env;
+const { MDB_URL, MDB_PORT, MDB_NAME, MDB_USER, MDB_PASSWORD } = process.env;
 
-const mongodb = `mongodb://${MDB_URL}:${MDB_PORT}/${MDB_NAME}`;
+const mongodb = `mongodb://${MDB_USER}:${MDB_PASSWORD}@${MDB_URL}:${MDB_PORT}/${MDB_NAME}`;
 
 mongoose
   .connect(mongodb, {
