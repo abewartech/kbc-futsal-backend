@@ -1,14 +1,397 @@
-name: auto-merge
+name: JavaScript Security Scan Pipeline
 
 on:
+  push:
+    branches: [ main, master ]
   pull_request:
+    branches: [ main, master ]
+  schedule:
+    # Run weekly on Sunday at midnight
+    - cron: '0 0 * * 0'
+  workflow_dispatch:  # Manual trigger
 
 jobs:
-  auto-merge:
+  # Job 1: CodeQL SAST for JavaScript/TypeScript
+  codeql-sast:
+    name: CodeQL Security Analysis
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    
     steps:
-      - uses: actions/checkout@v2
-      - uses: ahmadnassri/action-dependabot-auto-merge@v2
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          target: minor
-          github-token: ${{ secrets.mytoken }}
+          fetch-depth: 0
+      
+      # Harden runner for supply chain security
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      
+      # CodeQL for JavaScript/TypeScript
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+          
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          upload: always
+
+  # Job 2: Dependency Vulnerability Scanning
+  dependency-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      # Install dependencies for scanning
+      - name: Install dependencies
+        run: npm ci
+      
+      # OSV Scanner for npm vulnerabilities
+      - name: Run OSV-Scanner
+        uses: google/osv-scanner-action@v1
+        with:
+          scan-args: |-
+            -r
+            .
+            --format=sarif
+            --output=osv-results.sarif
+      
+      - name: Upload OSV results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: osv-results.sarif
+      
+      # Trivy for dependency scanning
+      - name: Run Trivy on dependencies
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-deps.sarif'
+          trivy-config: |
+            severity: CRITICAL,HIGH
+            scanners: vuln
+            
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-deps.sarif
+          
+      # npm audit as additional check
+      - name: Run npm audit
+        run: |
+          npm audit --json > npm-audit.json || true
+          
+      - name: Upload npm audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-results
+          path: npm-audit.json
+        if: always()
+
+  # Job 3: Secrets Detection
+  secrets-scan:
+    name: Secrets & Credentials Detection
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      # Gitleaks for secret detection
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Generate Gitleaks SARIF
+        if: always()
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/path ghcr.io/gitleaks/gitleaks:latest \
+            detect /path --report-format sarif --report-path /path/gitleaks-results.sarif
+        continue-on-error: true
+        
+      - name: Upload Gitleaks results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gitleaks-results.sarif
+        continue-on-error: true
+
+  # Job 4: ESLint Security Rules
+  eslint-security:
+    name: ESLint Security Rules
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install ESLint security plugins
+        run: |
+          npm install --save-dev \
+            eslint \
+            eslint-plugin-security \
+            eslint-plugin-no-unsanitized \
+            @typescript-eslint/parser \
+            @typescript-eslint/eslint-plugin
+      
+      - name: Create ESLint config
+        run: |
+          cat > .eslintrc.security.json << 'EOF'
+          {
+            "parser": "@typescript-eslint/parser",
+            "plugins": ["security", "no-unsanitized", "@typescript-eslint"],
+            "extends": [
+              "plugin:security/recommended",
+              "plugin:@typescript-eslint/recommended"
+            ],
+            "rules": {
+              "security/detect-object-injection": "error",
+              "security/detect-non-literal-regexp": "error",
+              "security/detect-unsafe-regex": "error",
+              "security/detect-buffer-noassert": "error",
+              "security/detect-child-process": "error",
+              "security/detect-disable-mustache-escape": "error",
+              "security/detect-eval-with-expression": "error",
+              "security/detect-no-csrf-before-method-override": "error",
+              "security/detect-non-literal-fs-filename": "error",
+              "security/detect-non-literal-require": "error",
+              "security/detect-possible-timing-attacks": "error",
+              "security/detect-pseudoRandomBytes": "error",
+              "no-unsanitized/property": "error",
+              "no-unsanitized/method": "error"
+            }
+          }
+          EOF
+      
+      - name: Run ESLint security scan
+        run: |
+          npx eslint . \
+            --config .eslintrc.security.json \
+            --format json \
+            --output-file eslint-security-results.json \
+            --ignore-pattern "node_modules" \
+            --ignore-pattern "dist" \
+            --ignore-pattern "build" \
+            --ext .js,.jsx,.ts,.tsx || true
+      
+      - name: Parse ESLint results
+        run: |
+          if [ -f eslint-security-results.json ]; then
+            echo "ESLint security scan completed"
+            ISSUES=$(jq '.[] | select(.errorCount > 0 or .warningCount > 0) | .filePath' eslint-security-results.json | wc -l)
+            echo "Found security issues in $ISSUES files"
+            
+            # Create summary
+            jq -r '.[] | select(.errorCount > 0 or .warningCount > 0) | "⚠️ \(.filePath): \(.errorCount) errors, \(.warningCount) warnings"' \
+              eslint-security-results.json > eslint-summary.txt
+          fi
+          
+      - name: Upload ESLint results
+        uses: actions/upload-artifact@v4
+        with:
+          name: eslint-security-results
+          path: |
+            eslint-security-results.json
+            eslint-summary.txt
+        if: always()
+      
+      - name: Fail on security errors
+        if: contains(github.event_name, 'pull_request')
+        run: |
+          if [ -f eslint-security-results.json ] && [ "$(jq '.[] | select(.errorCount > 0) | length' eslint-security-results.json)" -gt 0 ]; then
+            echo "❌ Security errors found in ESLint scan"
+            cat eslint-summary.txt
+            exit 1
+          fi
+
+  # Job 5: Snyk Security (Free for public repos)
+  snyk-security:
+    name: Snyk Vulnerability Scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Snyk
+        run: npm install -g snyk
+      
+      - name: Run Snyk scan
+        run: |
+          snyk test --json > snyk-results.json || true
+          snyk code test --json > snyk-code-results.json || true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+      
+      - name: Upload Snyk results
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-results
+          path: |
+            snyk-results.json
+            snyk-code-results.json
+        if: always()
+    
+    # Note: Get free Snyk token at https://snyk.io/signup
+
+  # Job 6: OWASP Dependency Check
+  owasp-dependency-check:
+    name: OWASP Dependency Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'JavaScript Security Scan'
+          path: '.'
+          format: 'SARIF'
+          out: 'reports'
+          args: >
+            --enableExperimental
+            --failOnCVSS 7
+            --suppression suppression.xml
+      
+      - name: Upload OWASP results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: reports/dependency-check-report.sarif
+        if: always()
+
+  # Job 7: Security Scorecard
+  scorecard:
+    name: OpenSSF Scorecard
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Run Scorecard
+        uses: ossf/scorecard-action@v2
+        with:
+          results_file: scorecard-results.sarif
+          results_format: sarif
+          publish_results: true
+      
+      - name: Upload Scorecard results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: scorecard-results.sarif
+
+  # Job 8: SAST with NodeJsScan (free)
+  nodejsscan:
+    name: NodeJsScan Security
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run NodeJsScan
+        uses: ajinabraham/njsscan-action@master
+        with:
+          args: '--sarif --output njsscan.sarif .'
+      
+      - name: Upload NodeJsScan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: njsscan.sarif
+        if: always()
+
+  # Summary job
+  security-summary:
+    name: Security Scan Summary
+    runs-on: ubuntu-latest
+    needs: [codeql-sast, dependency-scan, secrets-scan, eslint-security, scorecard, owasp-dependency-check, nodejsscan]
+    if: always()
+    
+    steps:
+      - name: Display scan results
+        run: |
+          echo "🔒 JavaScript Security Scan Pipeline Results"
+          echo "==========================================="
+          echo "✅ CodeQL SAST: ${{ needs.codeql-sast.result }}"
+          echo "✅ Dependency Scan: ${{ needs.dependency-scan.result }}"
+          echo "✅ Secrets Scan: ${{ needs.secrets-scan.result }}"
+          echo "✅ ESLint Security: ${{ needs.eslint-security.result }}"
+          echo "✅ OWASP Dependency Check: ${{ needs.owasp-dependency-check.result }}"
+          echo "✅ OpenSSF Scorecard: ${{ needs.scorecard.result }}"
+          echo "✅ NodeJsScan: ${{ needs.nodejsscan.result }}"
+          echo "==========================================="
+          
+          # Check for failures
+          if [[ "${{ needs.codeql-sast.result }}" == "failure" ]] || \
+             [[ "${{ needs.dependency-scan.result }}" == "failure" ]] || \
+             [[ "${{ needs.secrets-scan.result }}" == "failure" ]] || \
+             [[ "${{ needs.eslint-security.result }}" == "failure" ]]; then
+            echo "❌ Critical security issues detected!"
+            echo "Please check the security alerts in GitHub Security tab"
+            exit 1
+          else
+            echo "✅ All security checks passed"
+          fi
+      
+      - name: Create security badge
+        run: |
+          echo "🔒 Security Scan Status: ✅ PASSING" > security-status.txt
+          
+      - name: Upload security summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-summary
+          path: security-status.txt
+        if: always()
