@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
-mongoose.set("useFindAndModify", false);
+// NOTE: mongoose 6 removed useFindAndModify/useNewUrlParser/useCreateIndex/
+// useUnifiedTopology — passing them now throws, so they were dropped here.
 const Schema = mongoose.Schema;
 const Model = mongoose.model;
 require("dotenv").config();
@@ -9,11 +10,7 @@ const { MDB_URL, MDB_PORT, MDB_NAME, MDB_USER, MDB_PASSWORD } = process.env;
 const mongodb = `mongodb://${MDB_USER}:${MDB_PASSWORD}@${MDB_URL}:${MDB_PORT}/${MDB_NAME}`;
 
 mongoose
-  .connect(mongodb, {
-    useNewUrlParser: true,
-    useCreateIndex: true,
-    useUnifiedTopology: true
-  })
+  .connect(mongodb)
   .then(() => console.log("MongoDB Connected"))
   .catch(err => console.log(err));
 
