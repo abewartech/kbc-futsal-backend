@@ -1,6 +1,5 @@
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
-mongoose.set("useFindAndModify", false);
 const Schema = mongoose.Schema;
 const Model = mongoose.model;
 require("dotenv").config();
@@ -11,7 +10,6 @@ const mongodb = `mongodb://${MDB_USER}:${MDB_PASSWORD}@${MDB_URL}:${MDB_PORT}/${
 mongoose
   .connect(mongodb, {
     useNewUrlParser: true,
-    useCreateIndex: true,
     useUnifiedTopology: true
   })
   .then(() => console.log("MongoDB Connected"))
