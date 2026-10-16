@@ -2,7 +2,6 @@ const bodyParser = require("body-parser");
 const helmet = require("helmet");
 const cors = require("cors");
 const passport = require("passport");
-const expressValidator = require("express-validator");
 const session = require("express-session");
 const flash = require("connect-flash");
 
@@ -22,5 +21,4 @@ module.exports = app => {
   app.use(flash());
   app.use(passport.initialize());
   app.use(passport.session());
-  app.use(expressValidator());
 };
