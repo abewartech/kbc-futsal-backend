@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const { check, validationResult } = require("express-validator");
 const { Booking, completeBooking } = require("../../../config/dbConfig");
 const fs = require("fs");
 const Moment = require("moment");
@@ -8,14 +9,14 @@ const moment = extendMoment(Moment);
 
 const booking = {
   addBooking: (req, res) => {
-    jwt.verify(req.token, process.env.JWT_SECRET_KEY, function(err, authData) {
-      req.checkBody("date", "date field cannot be empty").notEmpty();
-      const errors = req.validationErrors();
+    jwt.verify(req.token, process.env.JWT_SECRET_KEY, async function(err, authData) {
+      await check("date", "date field cannot be empty").notEmpty().run(req);
+      const errors = validationResult(req);
 
-      if (errors) {
+      if (!errors.isEmpty()) {
         res.status(400).json({
           success: false,
-          message: errors[0].msg
+          message: errors.array()[0].msg
         });
       } else {
         completeBooking.find(

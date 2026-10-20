@@ -1,29 +1,27 @@
 const passport = require("passport");
 const jwt = require("jsonwebtoken");
+const { check, validationResult } = require("express-validator");
 const { User } = require("../../../config/dbConfig");
 require("../../../config/auth")(passport);
 
 const user = {
-  registerUser: (req, res, next) => {
-    req.checkBody("name", "Nama field cannot be empty").notEmpty();
-    req
-      .checkBody("email", "Email field cannot be empty")
-      .trim()
-      .notEmpty();
-    req.checkBody("password", "Password field cannot be empty").notEmpty();
-    req
-      .checkBody("passwordMatch", "Confirm Password field cannot be empty")
-      .notEmpty();
-    req
-      .checkBody("passwordMatch", "Passwords do not match, please try again")
-      .equals(req.body.password);
-    req.checkBody("role", "Role field cannot be empty").notEmpty();
-    const errors = req.validationErrors();
+  registerUser: async (req, res, next) => {
+    await check("name", "Nama field cannot be empty").notEmpty().run(req);
+    await check("email", "Email field cannot be empty").trim().notEmpty().run(req);
+    await check("password", "Password field cannot be empty").notEmpty().run(req);
+    await check("passwordMatch", "Confirm Password field cannot be empty")
+      .notEmpty()
+      .run(req);
+    await check("passwordMatch", "Passwords do not match, please try again")
+      .equals(req.body.password)
+      .run(req);
+    await check("role", "Role field cannot be empty").notEmpty().run(req);
+    const errors = validationResult(req);
 
-    if (errors) {
+    if (!errors.isEmpty()) {
       res.status(400).json({
         success: false,
-        message: errors[0].msg
+        message: errors.array()[0].msg
       });
     } else {
       passport.authenticate("signup", (err, user, info) => {
@@ -43,18 +41,15 @@ const user = {
     }
   },
 
-  loginUser: (req, res, next) => {
-    req
-      .checkBody("email", "email field cannot be empty")
-      .trim()
-      .notEmpty();
-    req.checkBody("password", "Password field cannot be empty").notEmpty();
+  loginUser: async (req, res, next) => {
+    await check("email", "email field cannot be empty").trim().notEmpty().run(req);
+    await check("password", "Password field cannot be empty").notEmpty().run(req);
 
-    const errors = req.validationErrors();
-    if (errors) {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
       res.status(400).json({
         success: false,
-        message: errors[0].msg
+        message: errors.array()[0].msg
       });
     } else {
       passport.authenticate("login", (err, user, info) => {

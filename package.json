@@ -19,7 +19,7 @@
     "express": "^4.22.2",
     "express-fileupload": "^1.1.6",
     "express-session": "^1.17.0",
-    "express-validator": "^5.3.1",
+    "express-validator": "^7.3.2",
     "fs": "0.0.1-security",
     "helmet": "^3.22.0",
     "jsonwebtoken": "^8.5.1",
